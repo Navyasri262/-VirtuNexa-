@@ -1,0 +1,50 @@
+import time
+import threading
+
+def countdown_timer(duration):
+    """
+    Countdown timer function that runs the countdown.
+    :param duration: Duration in seconds.
+    """
+    try:
+        while duration:
+            mins, secs = divmod(duration, 60)
+            timeformat = '{:02d}:{:02d}'.format(mins, secs)
+            print(f"Time remaining: {timeformat}", end="\r")
+            time.sleep(1)
+            duration -= 1
+
+        print("00:00")
+        print("🚨 Time's up! 🚨")
+    except KeyboardInterrupt:
+        print("\nTimer interrupted!")
+
+def start_timer():
+    """
+    Start the countdown timer by asking the user for the duration.
+    """
+    while True:
+        try:
+            user_input = input("Enter countdown duration (e.g., 2 minutes or 120 seconds): ").strip()
+            
+            # Check if the input contains 'minutes' or is a number in seconds
+            if 'minute' in user_input.lower():
+                minutes = int(user_input.split()[0])
+                duration = minutes * 60
+            elif user_input.isdigit():
+                duration = int(user_input)
+            else:
+                print("Invalid input. Please enter the time in seconds or minutes.")
+                continue
+
+            print(f"Starting timer for {duration} seconds...")
+            timer_thread = threading.Thread(target=countdown_timer, args=(duration,))
+            timer_thread.start()
+            break
+        except ValueError:
+            print("Invalid input! Please enter a valid number.")
+        except Exception as e:
+            print(f"Error: {e}")
+
+if __name__ == "__main__":
+    start_timer()
