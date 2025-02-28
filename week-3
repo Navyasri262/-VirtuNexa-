@@ -1,0 +1,132 @@
+import sqlite3
+import logging
+from datetime import datetime
+
+# Setting up logging to capture errors and actions
+logging.basicConfig(filename='finance_tracker.log', level=logging.DEBUG)
+
+class Transaction:
+    def __init__(self, amount, category, description, date=None, transaction_type="income"):
+        self.amount = amount
+        self.category = category
+        self.description = description
+        self.date = date or datetime.now().strftime('%Y-%m-%d')
+        self.transaction_type = transaction_type
+
+    def __repr__(self):
+        return f"{self.transaction_type.capitalize()} | {self.category} | {self.amount} | {self.date} | {self.description}"
+
+class FinanceTracker:
+    def __init__(self):
+        self.transactions = []
+        self.db_connection = sqlite3.connect("finance_tracker.db")
+        self.create_tables()
+
+    def create_tables(self):
+        cursor = self.db_connection.cursor()
+        cursor.execute('''CREATE TABLE IF NOT EXISTS transactions (
+                            id INTEGER PRIMARY KEY,
+                            amount REAL,
+                            category TEXT,
+                            description TEXT,
+                            date TEXT,
+                            transaction_type TEXT)''')
+        self.db_connection.commit()
+
+    def add_transaction(self, amount, category, description, transaction_type="income"):
+        transaction = Transaction(amount, category, description, transaction_type=transaction_type)
+        self.transactions.append(transaction)
+        cursor = self.db_connection.cursor()
+        cursor.execute('''INSERT INTO transactions (amount, category, description, date, transaction_type)
+                          VALUES (?, ?, ?, ?, ?)''',
+                       (amount, category, description, transaction.date, transaction_type))
+        self.db_connection.commit()
+        logging.info(f"Added transaction: {transaction}")
+    
+    def generate_report(self, month=None):
+        cursor = self.db_connection.cursor()
+        if month:
+            cursor.execute('''SELECT * FROM transactions WHERE strftime('%Y-%m', date) = ?''', (month,))
+        else:
+            cursor.execute('''SELECT * FROM transactions''')
+        rows = cursor.fetchall()
+
+        report = []
+        for row in rows:
+            report.append({
+                'Amount': row[1],
+                'Category': row[2],
+                'Description': row[3],
+                'Date': row[4],
+                'Transaction Type': row[5]
+            })
+        return report
+    
+    def monthly_summary(self, month=None):
+        transactions = self.generate_report(month)
+        income = 0
+        expenses = 0
+        for transaction in transactions:
+            if transaction['Transaction Type'] == 'income':
+                income += transaction['Amount']
+            elif transaction['Transaction Type'] == 'expense':
+                expenses += transaction['Amount']
+        return {
+            'Income': income,
+            'Expenses': expenses,
+            'Net Balance': income - expenses
+        }
+
+    def close(self):
+        self.db_connection.close()
+
+# Main function to interact with the user
+def run():
+    tracker = FinanceTracker()
+    
+    while True:
+        print("\nWelcome to Finance Tracker!")
+        print("1. Add Income")
+        print("2. Add Expense")
+        print("3. View Monthly Summary")
+        print("4. View Full Report")
+        print("5. Exit")
+        
+        choice = input("Enter choice: ")
+        
+        if choice == '1':
+            amount = float(input("Enter income amount: "))
+            category = input("Enter category: ")
+            description = input("Enter description: ")
+            tracker.add_transaction(amount, category, description, transaction_type="income")
+        
+        elif choice == '2':
+            amount = float(input("Enter expense amount: "))
+            category = input("Enter category: ")
+            description = input("Enter description: ")
+            tracker.add_transaction(amount, category, description, transaction_type="expense")
+        
+        elif choice == '3':
+            month = input("Enter month (YYYY-MM) or press Enter for all months: ")
+            summary = tracker.monthly_summary(month) 
+            print(f"Monthly Summary for {month}:")
+            print(f"Income: {summary['Income']}")
+            print(f"Expenses: {summary['Expenses']}")
+            print(f"Net Balance: {summary['Net Balance']}")
+        
+        elif choice == '4':
+            month = input("Enter month (YYYY-MM) or press Enter for all transactions: ")
+            report = tracker.generate_report(month)
+            print("Transactions Report:")
+            for transaction in report:
+                print(transaction)
+        
+        elif choice == '5':
+            tracker.close()
+            print("Thank you for using Finance Tracker!")
+            break
+        else:
+            print("Invalid choice, please try again.")
+
+if __name__ == "__main__":
+    run()
